@@ -2,73 +2,178 @@
 
 ![Banner](assets/banner.png)
 
-Multi-layer file encryption and compression tool berbasis Python. Bikin file atau folder lu aman banget pakai proteksi tingkat tinggi 🔐
+Tool enkripsi dan kompresi berlapis berbasis Python. Mengunci file atau folder dengan proteksi multi-layer AES-256 dan file kunci khusus `.kedf`.
 
-## 📌 Preview & Demo
+> **Build:** v1.0.1-alpha — versi alpha, gunakan untuk backup dan risiko ditanggung sendiri.
 
-![Screenshot Contoh](screenshot/contoh.png)
+## Preview
 
-🎥 **Demo Video:** [Lihat Video Demo (tes.mp4)](screenshot/tes.mp4)
-
----
-
-## 🚀 Tentang Project Ini
-
-Kinginul Enc-Dec File bukan tool enkripsi ecek-ecek. Sistem ini membungkus file ke dalam 10 lapis file ZIP yang masing-masing dienkripsi pakai password acak 64 karakter. Semua informasi password per layer disimpan aman di satu file kunci khusus berekstensi `.kedf`.
-
-> ⚠️ **PENTING:** Tanpa file `.kedf` dan Master Password yang benar, file target **gabisa ditembus mau 1 abad pun**! Keamanannya bener-bener absolut.
+![Screenshot Contoh](screenshots/contoh.png)
 
 ---
 
-## ⚡ Keuntungan Pake Tool Ini
+## Kegunaan
 
-- 🛡️ **Keamanan Berlapis (10 Layer)**: Nembus 1 lapis ZIP AES-256 aja pusing, apalagi 10 lapis berturut-turut.
-- 🔒 **Anti Brute-Force**: Master password dilindungi pakai PBKDF2HMAC dengan 600.000 iterasi. Bikin proses tebak password super lambat dan mustahil buat hacker.
-- 🔑 **Format File Kunci Kustom (.kedf)**: Menggunakan magic bytes `KEDF` buat mastiin file kunci valid dan ga gampang dipalsukan.
-- 💻 **Tampilan Interaktif**: Interface terminal (CLI) yang bersih + animasi loading cool.
+Tool ini dibuat untuk **melindungi data sensitif** (dokumen, arsip proyek, folder pribadi, dll.) dengan cara yang sulit ditembus tanpa kunci yang benar.
 
----
+**Cocok dipakai jika Anda ingin:**
 
-## 🔄 Alur Kerja (Cara Kerja)
+- Menyimpan file penting dalam bentuk terenkripsi di disk atau cloud
+- Menambah lapisan keamanan di luar sekadar password satu kali
+- Menyembunyikan struktur file asli agar tidak langsung terlihat sebagai arsip ZIP
+- Mencegah orang iseng membuka file kunci hanya karena ikut merename atau mengganti nama
 
-Proses enkripsi berjalan dengan alur yang lumayan panjang tapi super aman:
+**Yang Anda butuhkan untuk membuka kembali:**
 
-1. **Input File Target**: Lu masukin lokasi file atau folder yang mau dikunci.
-2. **Proses Looping 10 Lapis**:
-   - Program generate password random 64 karakter.
-   - File target dikompres jadi ZIP dan dikunci (AES-256 via PyZipper).
-   - File ZIP layer 1 dibungkus lagi ke ZIP layer 2 dengan password beda. Bikin terus sampe 10 layer.
-3. **Pembuatan File .kedf**:
-   - Data riwayat layer dan 10 password tadi dikumpulin.
-   - Lu masukin Master Password.
-   - Data dienkripsi pakai Master Password (Kombinasi PBKDF2 & Fernet).
-   - Hasilnya disimpan jadi file `.kedf`.
-4. **Selesai**: File asli dihapus, sisa file layer 10 dan file `.kedf`.
+1. File kunci `.kedf` **dengan nama asli** (tidak boleh di-rename)
+2. Semua file layer `.kf` (10 buah) di folder yang sama
+3. Master password yang Anda buat saat enkripsi
 
-### 🔓 Cara Dekripsi (Buka Kunci):
-Tinggal masukin file `.kedf` dan Master Password. Program bakal baca data layer dari dalam terus mengekstrak ZIP dari layer 10 mundur sampai layer 1 secara otomatis.
+Tanpa ketiganya, data **tidak bisa** dipulihkan.
 
 ---
 
-## 🛠️ Teknologi yang Dipakai
+## Fitur
+
+### Keamanan inti
+
+| Fitur | Penjelasan |
+|---|---|
+| **10 layer AES-256** | Setiap layer adalah arsip ZIP terenkripsi dengan password acak 64 karakter. Harus dibuka satu per satu dari layer 10 → 1. |
+| **File kunci `.kedf`** | Menyimpan daftar layer, nama file, dan password per layer — dienkripsi dengan Master Password. |
+| **PBKDF2 (600.000 iterasi)** | Master password di-hash kuat sebelum dipakai mendekripsi isi `.kedf`. |
+| **Fernet** | Enkripsi simetris untuk payload di dalam file `.kedf`. |
+
+### Fitur anti-clue (v1.0.1)
+
+| Fitur | Penjelasan |
+|---|---|
+| **Ekstensi `.kf` (Kinginul File)** | File layer tidak memakai ekstensi `.zip` sehingga tidak langsung terlihat sebagai arsip. |
+| **XOR obfuscation** | Isi setiap file `.kf` di-XOR setelah dibuat. Magic bytes ZIP (`PK\x03\x04`) tidak terbaca di hex editor atau deteksi signature. Ini **penyamuan**, bukan enkripsi tambahan — kekuatan utama tetap AES-256 di dalam arsip. |
+| **Kunci terikat nama file `.kedf`** | Penurunan kunci (KDF) memakai `Master Password + nama file .kedf`. Jika file `.kedf` di-rename, kunci yang dihasilkan salah → dekripsi gagal dengan pesan yang **sama** seperti password salah. Tidak ada petunjuk bahwa penyebabnya rename. |
+
+### Fitur pendukung
+
+- **Zip-slip protection** — Ekstraksi menolak path yang keluar dari folder tujuan.
+- **Progress file** — Jika proses terputus di tengah, jejak layer tersimpan di `*.kedf.progress` (sebelum `.kedf` final dibuat).
+- **CLI interaktif** — Menu terminal dengan animasi loading dan pewarnaan teks.
+
+---
+
+## Cara Pemakaian
+
+### 1. Instalasi
+
+Pastikan Python 3 sudah terpasang, lalu:
+
+```bash
+pip install -r requirements.txt
+```
+
+Dependensi: `colorama`, `pyzipper`, `cryptography`.
+
+### 2. Menjalankan program
+
+```bash
+python main.py
+```
+
+Menu utama:
+
+```
+  1. Kunci Folder/File (10 Layer ZIP)
+  2. Buka Kunci (Ekstrak semua Layer)
+  3. Keluar
+```
+
+### 3. Mengunci file atau folder (Enkripsi)
+
+1. Pilih menu **1**
+2. Masukkan path file atau folder, contoh: `src-edit` atau `D:\dokumen\rahasia.pdf`
+3. Tunggu proses 10 layer selesai — setiap layer menghasilkan file `.kf`
+4. Buat **Master Password** (minimal 12 karakter) dan konfirmasi
+5. Simpan file `.kedf` yang dihasilkan, contoh: `secret_data_a1b2c3d4e5.kedf`
+
+**Setelah selesai**, folder kerja berisi kira-kira:
+
+```
+kedf_layer_9_xxxxxxxxxx.kf    ← layer terluar (10)
+...
+kedf_layer_0_xxxxxxxxxx.kf    ← layer terdalam (1)
+secret_data_a1b2c3d4e5.kedf   ← file kunci (JANGAN di-rename)
+```
+
+File/folder asli **sudah dihapus** dari lokasi semula.
+
+### 4. Membuka kunci (Dekripsi)
+
+1. Pastikan **semua file `.kf`** dan file `.kedf` ada di **folder yang sama**
+2. Pastikan nama file `.kedf` **persis sama** seperti saat enkripsi
+3. Pilih menu **2**
+4. Masukkan path file `.kedf`
+5. Masukkan Master Password
+6. Program mengekstrak layer 10 → 1 secara otomatis
+
+File/folder asli akan muncul kembali di folder kerja.
+
+---
+
+## Contoh skenario rename (anti-clue)
+
+```
+Enkripsi:
+  src-edit/  →  ...  →  secret_data_x7k2m9p4q1.kedf
+
+Buka kunci — BERHASIL:
+  secret_data_x7k2m9p4q1.kedf  +  password benar  ✓
+
+Buka kunci — GAGAL (rename):
+  backup.kedf  +  password benar  ✗
+  → "Password master salah, atau file kunci rusak/dipalsukan."
+```
+
+Penyerang tidak mendapat petunjuk bahwa masalahnya adalah nama file, bukan password.
+
+---
+
+## Alur kerja singkat
+
+```
+[File/Folder asli]
+       ↓  Layer 1: ZIP + AES-256 + XOR → .kf
+       ↓  Layer 2: bungkus layer 1 → .kf
+       ↓  ...
+       ↓  Layer 10 → .kf (file terluar)
+       ↓  Metadata layer + password → enkripsi Master Password
+[File .kedf] + [10 file .kf]
+```
+
+Dekripsi berjalan **terbalik**: baca `.kedf` → XOR-balik setiap `.kf` → buka ZIP di memori → ekstrak sampai file asli kembali.
+
+---
+
+## Catatan keamanan
+
+- **Lupa Master Password** = data tidak bisa dipulihkan. Tidak ada fitur reset.
+- **File `.kedf` hilang/rusak** = data tidak bisa dipulihkan meski layer `.kf` masih ada.
+- **Jangan rename file `.kedf`** — simpan dengan nama asli persis seperti output enkripsi.
+- **Jangan pisahkan file layer** dari folder `.kedf` — semua harus satu lokasi saat dekripsi.
+- **Backup** data penting sebelum enkripsi; build ini masih alpha.
+- File `.kedf` versi lama (format v1/v2) dan layer tanpa XOR obfuscation **tidak kompatibel** dengan build ini — enkripsi ulang diperlukan.
+
+---
+
+## Teknologi
 
 - **Python 3**
-- **PyZipper**: Kompresi & AES-256 ZIP encryption.
-- **Cryptography (Fernet & PBKDF2HMAC)**: Enkripsi data di dalam file `.kedf`.
-- **Colorama**: Pewarnaan teks di terminal.
+- **PyZipper** — Kompresi dan enkripsi AES-256 pada arsip ZIP
+- **Cryptography** — Fernet + PBKDF2HMAC untuk file `.kedf`
+- **Colorama** — Pewarnaan terminal
 
 ---
 
-## ⚠️ Catatan Keamanan
-
-- Kalau lupa Master Password, mending ikhlasin aja datanya wkwk.
-- Kalau file `.kedf` hilang atau rusak, data gabakal bisa balik.
-- Selalu backup data penting sebelum nyoba encrypt.
-
----
-
-## 👨‍💻 Developer
+## Developer
 
 Dibuat oleh: **Kinginul**
 
-Dilarang keras menghapus credit atau mengakui project ini sebagai milik pribadi.
+Dilarang menghapus credit atau mengakui project ini sebagai milik pribadi.
